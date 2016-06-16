@@ -155,6 +155,17 @@ int main(int argc, char** argv) {
                         free(selection);
                         selection = NULL;
 
+                        if (!(SDL_GetModState() & KMOD_CTRL)) {
+                            unsigned w = abs(x1-x2);
+                            unsigned h = w * (float)winHeight/winWidth;
+                            printf ("%d, %d", w, h);
+                            if (y2 < y1) {
+                                y2 = y1-h;
+                            } else {
+                                y2 = y1+h;
+                            }
+                        }
+
                         viewCurrent = CalcNewView(viewCurrent, winWidth, winHeight, x1, y1, x2, y2);
                         printf("New boundaries: t:%f, r:%f, b:%f, l:%f\n", viewCurrent->rl_low, viewCurrent->rl_high, viewCurrent->im_low, viewCurrent->im_high);
 
@@ -236,7 +247,13 @@ int main(int argc, char** argv) {
             int x2, y2;
             SDL_GetMouseState(&x2, &y2);
             selection->w = x2-selection->x;
-            selection->h = y2-selection->y;
+            if (SDL_GetModState() & KMOD_CTRL) {
+                selection->h = y2-selection->y;
+            } else {
+                selection->h = abs(selection->w) * (float)winHeight/winWidth;
+                if (y2 < selection->y) selection->h = -selection->h;
+            }
+
             SDL_RenderDrawRect(ren, selection);
         }
 
