@@ -13,6 +13,7 @@ typedef struct bounds {
     struct bounds* last;
 } bounds;
 bounds* CalcNewView(bounds* current, unsigned winWidth, unsigned winHeight,unsigned x1, unsigned y1, unsigned x2, unsigned y2);
+void MoveView(bounds* view, double rl, double im);
 
 SDL_Texture* TextureMandelbrot(SDL_Renderer* ren, map* ptr, unsigned max_iter);
 
@@ -64,8 +65,8 @@ int main(int argc, char** argv) {
             \n -width <width> \t window width\
             \n -height <height>\t window height\
             \n -i <iterations>\t maximum iterations\
-            \n -b <base>\t\t starting size of chunk\
-            \n -d <difference>\t maximum difference allowed between chunks\
+            \n -b <base>\t\t initial chunk size\
+            \n -d <difference>\t maximum difference between chunks\
             \n -p <real-low> <real-up> <im-low> <im-up>\tbounds in complex plane\n");
             return -1;
         }
@@ -125,28 +126,50 @@ int main(int argc, char** argv) {
                         else if (mod & KMOD_ALT) multi *= 100;
                         multi *= 10;
                     }
-                    if (ev.key.keysym.sym == SDLK_KP_PLUS) {
-                        max_iter += 1*multi;
-                        reset = true;
+                    switch (ev.key.keysym.sym) {
+                        case SDLK_KP_PLUS: {
+                            max_iter += multi;
+                            reset = true;
+                            printf("Iterations: %d\n", max_iter);
+                        } break;
+                        case SDLK_KP_MINUS: {
+                            if (max_iter < multi)
+                                max_iter = 0;
+                            else
+                                max_iter -= multi;
+
+                            printf("Iterations: %d\n", max_iter);
+                            reset = true;
+                        } break;
+                        case SDLK_SPACE: {
+                            drawChunks = !drawChunks;
+                            printf("Drawing chunks: %s\n", drawChunks ? "true" : "false");
+                        } break;
+                        case SDLK_w: {
+                            MoveView(viewCurrent, 0, (viewCurrent->im_high-viewCurrent->im_low)*0.1f);
+                            reset = true;
+                        } break;
+                        case SDLK_a: {
+                            MoveView(viewCurrent, -(viewCurrent->rl_high-viewCurrent->rl_low)*0.1f, 0);
+                            reset = true;
+                        } break;
+                        case SDLK_s: {
+                            MoveView(viewCurrent, 0, -(viewCurrent->im_high-viewCurrent->im_low)*0.1f);
+                            reset = true;
+                        } break;
+                        case SDLK_d: {
+                            MoveView(viewCurrent, (viewCurrent->rl_high-viewCurrent->rl_low)*0.1f, 0);
+                            reset = true;
+                        } break;
+                        case SDLK_r: {
+                            reset = true;
+                        } break;
+                        case SDLK_p: {
+                            PrintChunks(mandelbrot);
+                        } break;
+                        default: break;
                     }
-                    else if (ev.key.keysym.sym == SDLK_KP_MINUS) {
-                        if (max_iter < 1*multi)
-                            max_iter = 0;
-                        else
-                            max_iter -= 1*multi;
-                        reset = true;
-                    }
-                    else if (ev.key.keysym.sym == SDLK_SPACE) {
-                        drawChunks = !drawChunks;
-                        printf("Drawing chunks: %s\n", drawChunks ? "true" : "false");
-                    }
-                    else if (ev.key.keysym.sym == SDLK_r) {
-                        reset = true;
-                    }
-                    else if (ev.key.keysym.sym == SDLK_p) {
-                        PrintChunks(mandelbrot);
-                    }
-                } break;
+                } break; // break SDL_KEYUP
                 case SDL_MOUSEBUTTONUP: {
                     if (ev.button.button == SDL_BUTTON_LEFT) {
                         int x1 = selection->x, y1 = selection->y;
@@ -158,7 +181,6 @@ int main(int argc, char** argv) {
                         if (!(SDL_GetModState() & KMOD_CTRL)) {
                             unsigned w = abs(x1-x2);
                             unsigned h = w * (float)winHeight/winWidth;
-                            printf ("%d, %d", w, h);
                             if (y2 < y1) {
                                 y2 = y1-h;
                             } else {
@@ -208,23 +230,46 @@ int main(int argc, char** argv) {
 
             mandelbrot = InitMap(winWidth, winHeight, base, viewCurrent->rl_low, viewCurrent->rl_high, viewCurrent->im_low, viewCurrent->im_high);
             recalc = 1;
-            reset = false;
         }
         //  If recalc is requested
         if (recalc) {
-            fprintf(stderr, "Calculating mandelbrot, %d iterations... ", max_iter);
-            unsigned startTicks = SDL_GetTicks();
+            static unsigned stats[5] = {0};
+            if (reset) {
+                stats[0] = stats[1] = stats[2] = stats[3] = stats[4] = 0;
+                reset = false;
+            }
+            stats[0]++;
 
-            IterateChunks(mandelbrot, max_iter);
-            FlagDifferent(mandelbrot, max_diff);
+            unsigned part = SDL_GetTicks();
             recalc = SplitChunks(mandelbrot);
+            stats[1] += SDL_GetTicks() - part;
 
-            fprintf(stderr, "time: %d\nRendering mandelbrot... ", SDL_GetTicks()-startTicks);
-            startTicks = SDL_GetTicks();
+            part = SDL_GetTicks();
+            IterateChunks(mandelbrot, max_iter);
+            stats[2] += SDL_GetTicks() - part;
 
+            part = SDL_GetTicks();
+            FlagDifferent(mandelbrot, max_diff);
+            stats[3] += SDL_GetTicks() - part;
+
+            part = SDL_GetTicks();
             if (textMandel) SDL_DestroyTexture(textMandel);
             textMandel = TextureMandelbrot(ren, mandelbrot, max_iter);
-            fprintf(stderr, "time: %d\n", SDL_GetTicks()-startTicks);
+            stats[4] += SDL_GetTicks() - part;
+
+            //  if we are done print some statistics
+            if (!recalc) {
+                unsigned total = stats[1] + stats[2] + stats[3] + stats[4];
+                printf("%d times recalc\
+                \nSplit\t%d (%f)\
+                \nMandel\t%d (%f)\
+                \nDiff\t%d (%f)\
+                \nRender\t%d (%f)\
+                \nTotal\t%d (%f)\n", stats[0], stats[1], (float)stats[1]/stats[0], stats[2], (float)stats[2]/stats[0], stats[3], (float)stats[3]/stats[0], stats[4], (float)stats[4]/stats[0], total, (float)total/stats[0]);
+
+                //  Set all stats to 0
+                stats[0] = stats[1] = stats[2] = stats[3] = stats[4] = 0;
+            }
         }
 
         const char *error = SDL_GetError();
@@ -368,4 +413,11 @@ bounds* CalcNewView(bounds* current, unsigned winWidth, unsigned winHeight,unsig
 
     newView->last = current;
     return newView;
+}
+
+void MoveView(bounds* view, double rl, double im) {
+    view->rl_high += rl;
+    view->rl_low += rl;
+    view->im_high += im;
+    view->im_low += im;
 }

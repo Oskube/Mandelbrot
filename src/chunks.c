@@ -64,17 +64,6 @@ static chunk* CreateChunk(map* ptr, unsigned x, unsigned y, unsigned w, unsigned
 // -------------------------------------------------------------
 //  Functions declared in chunks.h
 map* InitMap(unsigned mapw, unsigned maph, unsigned base, double rl_low, double rl_high, double im_low, double im_high) {
-    if (rl_high < rl_low) {
-        double tmp = rl_high;
-        rl_high = rl_low;
-        rl_high = tmp;
-    }
-    if (im_high < im_low) {
-        double tmp = im_high;
-        im_high = im_low;
-        im_high = tmp;
-    }
-
     map* ret = (map*)malloc(sizeof(map));
     ret->width = mapw;
     ret->height = maph;
