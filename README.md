@@ -25,12 +25,13 @@ You can check launch options by executing the program with `-h`.
 |:--------:|---------
 |WASD      | Move around
 |Mouse 1   | Select an area to zoom in *
-|Mouse 2   | Go back to previous selection 
-|R         | Recalculate current view
+|Mouse 2   | Go back to the previous selection
+|O         | Save current view in to a BMP file
 |P         | Print chunk info
+|R         | Recalculate current view
 |Space     | Show chunks top-left corner
-|Numpad +  | Increase iterations **
-|Numpad -  | Decrease iterations **
+|Numpad +  | Increase the number of iterations **
+|Numpad -  | Decrease the number of iterations **
 
 _* Use ctrl to disable aspect ratio forcing_  
 _** Use modifiers keys change iterations easier: ctrl by 10, ctrl+shift by 100, ctrl+alt by 1000._
