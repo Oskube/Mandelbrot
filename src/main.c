@@ -4,6 +4,7 @@
 #include <stdio.h>  /* fprintf, printf */
 #include <stdlib.h> /* malloc, free, atoi*/
 #include <string.h> /* parsing cmdline args */
+#include <time.h>
 
 #define DEF_WINDOW_WIDTH  1200
 #define DEF_WINDOW_HEIGHT 720
@@ -12,12 +13,18 @@ typedef struct bounds {
     double rl_high, rl_low, im_high, im_low;
     struct bounds* last;
 } bounds;
-bounds* CalcNewView(bounds* current, unsigned winWidth, unsigned winHeight,unsigned x1, unsigned y1, unsigned x2, unsigned y2);
+//  Calculate new view from current
+bounds* CalcNewView(bounds* current, unsigned winWidth, unsigned winHeight, unsigned x1, unsigned y1, unsigned x2, unsigned y2);
 void MoveView(bounds* view, double rl, double im);
+// Writes current view to BMP
+void SaveView(SDL_Renderer* ren, unsigned w, unsigned h);
 
+//  Renders Mandelbrot to sdl texture
 SDL_Texture* TextureMandelbrot(SDL_Renderer* ren, map* ptr, unsigned max_iter);
 
+//  Prints info of every chunk
 void PrintChunks(map* ptr);
+//  Draws starting point of every chunk
 void RenderChunksStart(SDL_Renderer* ren, chunklist* last);
 
 int main(int argc, char** argv) {
@@ -166,6 +173,9 @@ int main(int argc, char** argv) {
                         } break;
                         case SDLK_p: {
                             PrintChunks(mandelbrot);
+                        } break;
+                        case SDLK_o: {
+                            SaveView(ren, winWidth, winHeight);
                         } break;
                         default: break;
                     }
@@ -420,4 +430,26 @@ void MoveView(bounds* view, double rl, double im) {
     view->rl_low += rl;
     view->im_high += im;
     view->im_low += im;
+}
+
+void SaveView(SDL_Renderer* ren, unsigned w, unsigned h) {
+    if (ren == NULL) return;
+
+    SDL_Surface* screen = SDL_CreateRGBSurface(0, w, h, 32, 0x00ff0000, 0x0000ff00, 0x000000ff, 0xff000000);
+
+    //  If we can read pixels, save them
+    if(!SDL_RenderReadPixels(ren, NULL, SDL_PIXELFORMAT_ARGB8888, screen->pixels, screen->pitch)) {
+        //  Use current date and time as a name. "YYMMDD-HHMMSS.bmp"
+        char name[100] = "";
+        time_t t = time(NULL);
+        struct tm* tmp = localtime(&t);
+        strftime(name, sizeof(name), "%Y%m%d-%H%M%S.bmp", tmp);
+
+        printf("Saving screenshot: %s\n", name);
+        SDL_SaveBMP(screen, name);
+    } else {
+        fprintf(stderr, "Error reading renderer.\n");
+    }
+
+    SDL_FreeSurface(screen);
 }
